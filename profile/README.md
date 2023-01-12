@@ -4,7 +4,7 @@
   </a>
 </p>
 
-<h2 align="center">Less overpaying. More traveling.<h2>
+<h3 align="center">Less overpaying. More traveling.</h3>
 <p align="center">
   <a href="https://going.com">Website</a> |
   <a href="https://going.com/careers">Careers</a> |
