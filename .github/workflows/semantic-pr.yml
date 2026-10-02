@@ -1,0 +1,40 @@
+name: Semantic PR
+
+# Fails a pull request whose title isn't a Conventional Commits header, since
+# the squash-merge commit takes the PR title. Call it from a pull_request_target
+# trigger with opened, edited, reopened and synchronize: the check then runs
+# from the base branch, and never checks out or runs the PR's code.
+# Bot-authored PRs are skipped, which counts as passing for a required check.
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  check:
+    if: >-
+      github.event.pull_request.user.login != 'github-actions[bot]' &&
+      github.event.pull_request.user.login != 'renovate[bot]' &&
+      github.event.pull_request.user.login != 'scf-autopilot' &&
+      github.event.pull_request.user.login != 'going-dev-gh-aw-compiler[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            perf
+            test
+            ci
+            build
+            revert
+          requireScope: false

@@ -1,0 +1,41 @@
+name: PR Jira ticket check
+
+# Fails a pull request whose title has no Jira key (e.g. SRE-123). Call it from
+# a pull_request trigger with opened, reopened, edited and synchronize, so a
+# title fix re-runs it. Bot-authored PRs are skipped, which counts as passing
+# for a required check.
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  check:
+    if: >-
+      github.event.pull_request.user.login != 'github-actions[bot]' &&
+      github.event.pull_request.user.login != 'renovate[bot]' &&
+      github.event.pull_request.user.login != 'scf-autopilot' &&
+      github.event.pull_request.user.login != 'going-dev-gh-aw-compiler[bot]'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Validate PR for Jira ticket number
+        env:
+          # Passed through env, not interpolated into the script: the title is
+          # attacker-controlled.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Remove backticks from the PR title
+          CLEANED_TITLE=$(echo "$PR_TITLE" | tr -d '`')
+
+          JIRA_REGEX='([A-Z]{2,}-[0-9]+)'
+
+          if [[ "$CLEANED_TITLE" =~ $JIRA_REGEX ]]; then
+            TICKET=$(echo "$CLEANED_TITLE" | grep -oE "$JIRA_REGEX" | head -n 1)
+            echo "✅ Jira ticket found in PR title: $TICKET"
+            exit 0
+          else
+            echo "❌ No Jira ticket found in PR title. Please include a Jira ticket (e.g., ABC-123)."
+            exit 1
+          fi
