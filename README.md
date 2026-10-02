@@ -67,7 +67,8 @@ The repository also needs:
 ## PR hygiene
 
 Two checks on pull request titles, both skipped for PRs opened by
-`github-actions`, `renovate`, `scf-autopilot` and `going-dev-gh-aw-compiler`:
+`github-actions`, `dependabot`, `renovate`, `scf-autopilot` and
+`going-dev-gh-aw-compiler`:
 
 - [`pr-jira-check.yml`](.github/workflows/pr-jira-check.yml) requires a Jira
   key such as `SRE-123`.
@@ -108,6 +109,10 @@ jobs:
       pull-requests: read
     uses: going-dev/.github/.github/workflows/semantic-pr.yml@<sha> # vX.Y.Z
 ```
+
+Both also work from a `pull_request` trigger. They only read the event payload
+and never check out the PR's code. The tradeoff is that the PR's own copy of the
+caller runs, so a PR can edit its gate.
 
 A called job reports its check as `<caller job> / <called job>`. These report
 as `jira-check / check` and `semantic-pr / check`. Require those names in the

@@ -15,6 +15,7 @@ jobs:
   check:
     if: >-
       github.event.pull_request.user.login != 'github-actions[bot]' &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
       github.event.pull_request.user.login != 'renovate[bot]' &&
       github.event.pull_request.user.login != 'scf-autopilot' &&
       github.event.pull_request.user.login != 'going-dev-gh-aw-compiler[bot]'

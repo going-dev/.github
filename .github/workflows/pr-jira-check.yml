@@ -14,6 +14,7 @@ jobs:
   check:
     if: >-
       github.event.pull_request.user.login != 'github-actions[bot]' &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
       github.event.pull_request.user.login != 'renovate[bot]' &&
       github.event.pull_request.user.login != 'scf-autopilot' &&
       github.event.pull_request.user.login != 'going-dev-gh-aw-compiler[bot]'
@@ -37,5 +38,8 @@ jobs:
             exit 0
           else
             echo "❌ No Jira ticket found in PR title. Please include a Jira ticket (e.g., ABC-123)."
+            printf '   Received: %s\n' "$PR_TITLE"
+            echo "   The squash commit inherits this title, so the key is how a commit"
+            echo "   on main resolves back to its ticket."
             exit 1
           fi
