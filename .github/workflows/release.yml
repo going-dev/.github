@@ -1,0 +1,46 @@
+name: Release
+
+# Cuts a release on every merge to main that warrants one. semantic-release reads
+# the squash-merged, conventional-commit PR titles since the last tag: fix ->
+# patch, feat -> minor, a breaking change (feat! or BREAKING CHANGE) -> major.
+# ci, docs, chore and the like cut no release. Each release is a vX.Y.Z tag
+# plus a GitHub Release, which consumers pick up as a Renovate bump of the
+# SHA-pinned uses: line in their callers.
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Tag push, GitHub Release, and the released/failure comments on PRs and issues.
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Semantic release
+        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
+        with:
+          semantic_version: 25
+          # The preset major must match the changelog writer that
+          # @semantic-release/release-notes-generator uses (writer 8 -> preset 8);
+          # a mismatch renders empty notes without failing.
+          extra_plugins: |
+            conventional-changelog-conventionalcommits@8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
