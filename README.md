@@ -4,11 +4,12 @@ Shared CI and Renovate config for going-dev repositories. The public org
 profile lives in [`profile/README.md`](profile/README.md).
 
 Releases are cut by semantic-release on merge to `main` (see
-[`release.yml`](.github/workflows/release.yml)). Pin reusable workflows by full
+[`release.yaml`](.github/workflows/release.yaml)). Pin reusable workflows by full
 commit SHA with the tag as a trailing comment, so Renovate can bump both.
 
-In `.github/workflows/`, the `.yml` files are the reusable workflows. The
-`.yaml` files run on this repository, some of them by calling the `.yml` ones.
+In `.github/workflows/`, `.yml` files are reusable workflows, called with
+`workflow_call`. `.yaml` files run on this repository's own events, and some of
+them call the `.yml` ones.
 
 ## gh-aw compile
 
