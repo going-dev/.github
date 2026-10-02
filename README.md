@@ -55,8 +55,8 @@ jobs:
 
 Keep `gh-aw-version` in the caller. A Renovate gh-aw bump has to change a file
 the push trigger matches, or the recompile never runs. Any other gh-aw pin in
-the repository, such as a compile check in `validate.yml`, carries the same
-annotation, so one Renovate PR moves them together.
+the calling repository, such as a compile check in its own `validate.yml`,
+carries the same annotation, so one Renovate PR moves them together.
 
 The repository also needs:
 
