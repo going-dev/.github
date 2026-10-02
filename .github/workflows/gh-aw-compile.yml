@@ -1,0 +1,224 @@
+name: gh-aw compile
+
+# Regenerates a repository's gh-aw lock files and generated assets on its own
+# Renovate branch, then pushes them back with the going-dev-gh-aw-compiler app.
+# Callers run this from a push trigger limited to their gh-aw and
+# doc-review-agent Renovate branches, and keep the gh-aw version in their own
+# file so a Renovate bump changes a path their trigger matches.
+
+on:
+  workflow_call:
+    inputs:
+      gh-aw-version:
+        description: >-
+          gh-aw release to compile with, e.g. v0.89.21. Keep it in step with
+          github/gh-aw-actions/setup in the caller's .github/aw/actions-lock.json:
+          the compiler emits that action at its own version, so a lagging pin
+          silently regenerates the lock files against an older runtime.
+        type: string
+        required: true
+    secrets:
+      GH_APP_ID:
+        required: true
+      GH_APP_PRIVATE_KEY:
+        required: true
+
+permissions: {}
+
+jobs:
+  # Fetches each pinned doc-review-agent import into the compiler's cache layout
+  # (.github/aw/imports/<owner>/<repo>/<sha>/<path with / as _>). A full-SHA pin is
+  # then a cache hit, so the compile job needs no access to that private repo.
+  prefetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Find pinned imports
+        id: specs
+        run: |
+          grep -rhoE 'going-dev/doc-review-agent/[^@[:space:]]+@[0-9a-f]{40}' .github/workflows/*.md \
+            | sort -u > "$RUNNER_TEMP/specs.txt" || true
+          if [ -s "$RUNNER_TEMP/specs.txt" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No pinned doc-review-agent imports"
+          fi
+
+      - name: Generate read-only token
+        if: steps.specs.outputs.found == 'true'
+        id: read-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: going-dev
+          repositories: doc-review-agent
+          permission-contents: read
+
+      - name: Fetch pinned imports
+        if: steps.specs.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ steps.read-token.outputs.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/imports"
+          while IFS= read -r spec; do
+            src="${spec#going-dev/doc-review-agent/}"
+            src="${src%@*}"
+            sha="${spec##*@}"
+            # Only the shared component is fetched; the token can read the whole
+            # private repo, so any other path named in a workflow is refused.
+            if [ "$src" != ".github/workflows/shared/doc-review.md" ]; then
+              echo "::error::unsupported doc-review-agent import: $src"
+              exit 1
+            fi
+            dest="$RUNNER_TEMP/imports/going-dev/doc-review-agent/$sha/$(printf '%s' "$src" | tr '/' '_')"
+            mkdir -p "$(dirname "$dest")"
+            gh api "repos/going-dev/doc-review-agent/contents/$src?ref=$sha" \
+              -H 'Accept: application/vnd.github.raw' > "$dest"
+          done < "$RUNNER_TEMP/specs.txt"
+
+      - if: steps.specs.outputs.found == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aw-imports
+          path: ${{ runner.temp }}/imports/
+          # The compiler names cache entries after the source path, starting with
+          # a dot (.github_workflows_...), which upload-artifact skips by default.
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # Runs the newly bumped, not yet reviewed gh-aw release, so it gets no secrets
+  # and no write access: a read-only github.token, not persisted in git config.
+  # Its only output is a patch for the push job below.
+  compile:
+    needs: prefetch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_AW_VERSION: ${{ inputs.gh-aw-version }}
+    steps:
+      - name: Check gh-aw version
+        run: |
+          if ! printf '%s' "$GH_AW_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::gh-aw-version must look like v1.2.3, got: $GH_AW_VERSION"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: aw-imports
+          path: .github/aw/imports/
+
+      - name: Install gh-aw
+        run: gh extension install github/gh-aw --pin "$GH_AW_VERSION"
+
+      # upgrade applies codemods, refreshes the agent, skill and Copilot setup files,
+      # and re-resolves the cached pins in actions-lock.json, which compile alone
+      # keeps as they are. compile runs last so the result matches a plain
+      # recompile; the two disagree on some generated values.
+      # upgrade otherwise installs the latest gh-aw release and re-runs itself with
+      # it, bypassing GH_AW_VERSION. The flag is hidden; if a release drops it, the
+      # unknown flag fails this step instead of silently running another version.
+      - name: Upgrade and compile
+        run: |
+          gh aw upgrade --skip-extension-upgrade
+          gh aw compile
+
+      # The compiler caches each imported commit under .github/aw/imports/ and never
+      # removes old ones. Drop any cached commit no lock file references.
+      - name: Prune unused import cache
+        run: |
+          for dir in .github/aw/imports/*/*/*/; do
+            [ -d "$dir" ] || continue
+            sha="$(basename "$dir")"
+            grep -qs -- "$sha" .github/workflows/*.lock.yml || rm -rf -- "$dir"
+          done
+
+      # Stage the whole tree rather than named paths: gh-aw adds and drops its own
+      # outputs across versions, and a pathspec that matches nothing fails the job.
+      # The push job rejects anything outside the paths gh-aw generates.
+      - name: Capture generated changes
+        run: |
+          git add -A
+          git diff --cached --binary > "$RUNNER_TEMP/generated.patch"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: generated
+          path: ${{ runner.temp }}/generated.patch
+          if-no-files-found: error
+          retention-days: 1
+
+  # Holds the write-capable app token, but never runs the compiler: it only
+  # applies the compile job's patch, limited to the files gh-aw generates or
+  # codemods. Other workflows, the caller included, can't be changed this way.
+  # An app-token push starts workflow runs from the generated locks before review.
+  # That is accepted: the same locks run with the same secrets once merged, so it
+  # only matters if the gh-aw release itself is compromised.
+  push:
+    needs: compile
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: generated
+          path: ${{ runner.temp }}
+
+      - name: Check for generated changes
+        id: patch
+        run: |
+          if [ -s "$RUNNER_TEMP/generated.patch" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No generated files changed"
+          fi
+
+      - name: Generate app token
+        if: steps.patch.outputs.changed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          # Only what the push needs; unset, the token gets every permission the
+          # app holds, including the issue and pull request writes doc review uses.
+          permission-contents: write
+          permission-workflows: write
+
+      # Check out the exact commit that was compiled; pushing HEAD to the branch
+      # then fails as a non-fast-forward if the branch moved in the meantime.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: steps.patch.outputs.changed == 'true'
+        with:
+          ref: ${{ github.sha }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Apply, commit and push
+        if: steps.patch.outputs.changed == 'true'
+        run: |
+          git apply --index "$RUNNER_TEMP/generated.patch"
+          allowed='^(\.gitattributes|\.github/(agents|aw|skills)/.+|\.github/workflows/([^/]+\.lock\.yml|[^/]+\.md|copilot-setup-steps\.yml|agentics-maintenance\.yml))$'
+          outside="$(git diff --cached --name-only --no-renames | grep -vE "$allowed" || true)"
+          if [ -n "$outside" ]; then
+            echo "::error::generated patch touches files gh-aw does not generate:"
+            echo "$outside"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: regenerate gh-aw lock files"
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"

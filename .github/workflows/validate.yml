@@ -1,0 +1,34 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # actionlint also runs shellcheck over every run: block.
+      - name: Lint workflows
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
+
+      # Every repo that extends a preset here picks up a change on its next
+      # Renovate run, so an invalid preset breaks Renovate org-wide.
+      - name: Validate Renovate config and presets
+        env:
+          # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
+          RENOVATE_VERSION: 44.131.3
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w "ghcr.io/renovatebot/renovate:$RENOVATE_VERSION" \
+            renovate-config-validator --strict renovate.json renovate/*.json

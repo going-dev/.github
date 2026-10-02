@@ -1,0 +1,52 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Shared Renovate rules for repositories that run gh-aw workflows. Extend with github>going-dev/.github//renovate/gh-aw.",
+  "packageRules": [
+    {
+      "description": "Everything gh-aw generates is output, not input. gh aw upgrade and compile rewrite these from the CLI's own version, so a bump landed here is reverted by the next compile run. Move them by bumping github/gh-aw, which sets the gh-aw version in the gh-aw-compile caller.",
+      "matchFileNames": [
+        ".github/agents/**",
+        ".github/aw/actions-lock.json",
+        ".github/aw/imports/**",
+        ".github/skills/**",
+        ".github/workflows/*.lock.yml",
+        ".github/workflows/agentics-maintenance.yml",
+        ".github/workflows/copilot-setup-steps.yml"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "gh-aw publishes near-daily releases; batch to a weekly cadence to cut PR noise",
+      "matchDepNames": [
+        "github/gh-aw"
+      ],
+      "schedule": [
+        "before 6am on monday"
+      ]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Versions in workflow files marked with a `# renovate: datasource=... depName=...` comment on the line above, such as the gh-aw version in the gh-aw-compile caller and validate.yml. The value may be quoted.",
+      "managerFilePatterns": [
+        "/(^|/)\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-.]+)\\s+depName=(?<depName>[^\\s]+?)\\n\\s+[\\w-]+:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "The shared doc-review component, imported by full commit SHA (so gh-aw compiles offline from the committed .github/aw/imports/ cache) with its tag as a trailing comment. The gh-aw-compile caller recompiles on these branches.",
+      "managerFilePatterns": [
+        "/(^|/)\\.github/workflows/[^/]+\\.md$/"
+      ],
+      "matchStrings": [
+        "going-dev/doc-review-agent/[^@\\s]+@(?<currentDigest>[0-9a-f]{40})\\s*#\\s*(?<currentValue>v\\S+)"
+      ],
+      "depNameTemplate": "going-dev/doc-review-agent",
+      "datasourceTemplate": "github-tags"
+    }
+  ]
+}

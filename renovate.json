@@ -1,0 +1,11 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "github>going-dev/.github//renovate/gh-aw"
+  ],
+  "labels": [
+    "renovate"
+  ]
+}
