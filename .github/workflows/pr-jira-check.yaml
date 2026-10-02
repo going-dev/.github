@@ -1,0 +1,12 @@
+name: PR Jira ticket check
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+
+permissions: {}
+
+jobs:
+  jira-check:
+    permissions: {}
+    uses: ./.github/workflows/pr-jira-check.yml

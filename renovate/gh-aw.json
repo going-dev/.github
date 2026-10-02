@@ -28,7 +28,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Versions in workflow files marked with a `# renovate: datasource=... depName=...` comment on the line above, such as the gh-aw version in the gh-aw-compile caller and validate.yml. The value may be quoted.",
+      "description": "Versions in workflow files marked with a `# renovate: datasource=... depName=...` comment on the line above, such as the gh-aw version in a repository's gh-aw-compile caller and its own validate.yml. The value may be quoted.",
       "managerFilePatterns": [
         "/(^|/)\\.github/workflows/.+\\.ya?ml$/"
       ],
