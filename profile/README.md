@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://going.com">
-    <img width="300" alt="Going wordmark" src="https://going-public-assets.s3.us-east-1.amazonaws.com/logo/going-wordmark.svg"/>
+    <img width="300" alt="Going workmark" src="https://github.com/user-attachments/assets/7279a725-1103-45a9-a0ae-8877f992b428" />
   </a>
 </p>
 
