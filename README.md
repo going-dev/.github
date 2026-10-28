@@ -16,7 +16,6 @@ them call the `.yml` ones.
 [`gh-aw-compile.yml`](.github/workflows/gh-aw-compile.yml) regenerates a
 repository's gh-aw lock files and generated assets on its own Renovate
 branches, and pushes them back with the `going-dev-gh-aw-compiler` app. It
-fetches pinned `going-dev/doc-review-agent` imports into the compiler cache,
 compiles with a read-only token and no secrets, and pushes only the files
 gh-aw generates.
 
@@ -27,12 +26,11 @@ name: gh-aw compile
 
 on:
   push:
-    # gh-aw and doc-review-agent branches only. Action-only bumps need no
-    # recompile. A push to a listed branch runs that branch's copy of this file,
-    # which can point uses: anywhere, so only writers can trigger it.
+    # gh-aw branches only. Action-only bumps need no recompile. A push to a
+    # listed branch runs that branch's copy of this file, which can point uses:
+    # anywhere, so only writers can trigger it.
     branches:
       - "renovate/github-gh-aw-**"
-      - "renovate/going-dev-doc-review-agent-**"
     paths:
       - ".github/aw/actions-lock.json"
       - ".github/workflows/*.md"
@@ -125,8 +123,7 @@ repository needs:
 
 - generated files are left alone;
 - gh-aw bumps are batched weekly;
-- `# renovate:` annotated versions in workflows are tracked;
-- the SHA-pinned doc-review-agent import is tracked.
+- `# renovate:` annotated versions in workflows are tracked.
 
 ```json
 {

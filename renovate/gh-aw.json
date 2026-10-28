@@ -35,18 +35,6 @@
       "matchStrings": [
         "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-.]+)\\s+depName=(?<depName>[^\\s]+?)\\n\\s+[\\w-]+:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
       ]
-    },
-    {
-      "customType": "regex",
-      "description": "The shared doc-review component, imported by full commit SHA (so gh-aw compiles offline from the committed .github/aw/imports/ cache) with its tag as a trailing comment. The gh-aw-compile caller recompiles on these branches.",
-      "managerFilePatterns": [
-        "/(^|/)\\.github/workflows/[^/]+\\.md$/"
-      ],
-      "matchStrings": [
-        "going-dev/doc-review-agent/[^@\\s]+@(?<currentDigest>[0-9a-f]{40})\\s*#\\s*(?<currentValue>v\\S+)"
-      ],
-      "depNameTemplate": "going-dev/doc-review-agent",
-      "datasourceTemplate": "github-tags"
     }
   ]
 }
