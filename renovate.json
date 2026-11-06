@@ -7,5 +7,17 @@
   ],
   "labels": [
     "renovate"
+  ],
+  "packageRules": [
+    {
+      "description": "Renovate releases several times a week, and validate.yaml pins its image to run the config validator. Batch the bumps into one weekly PR to cut noise.",
+      "matchDepNames": [
+        "ghcr.io/renovatebot/renovate"
+      ],
+      "groupName": "renovate",
+      "schedule": [
+        "before 6am on monday"
+      ]
+    }
   ]
 }
