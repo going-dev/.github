@@ -135,13 +135,23 @@ jobs:
 
       - name: Apply, commit and push
         if: steps.patch.outputs.changed == 'true'
+        env:
+          GH_AW_VERSION: ${{ inputs.gh-aw-version }}
         run: |
           git apply --index "$RUNNER_TEMP/generated.patch"
           allowed='^(\.gitattributes|\.github/(agents|aw|skills)/.+|\.github/workflows/([^/]+\.lock\.yml|[^/]+\.md|copilot-setup-steps\.yml|agentics-maintenance\.yml))$'
           outside="$(git diff --cached --name-only --no-renames | grep -vE "$allowed" || true)"
+          # gh aw upgrade codemods can rewrite hand-written sources such as imported
+          # shared/*.md files. Those edits need a human to review and commit them, so
+          # the compile itself succeeded and only the push is refused.
           if [ -n "$outside" ]; then
-            echo "::error::generated patch touches files gh-aw does not generate:"
+            echo "::error::gh aw upgrade changed hand-written files, which this job will not commit. Compile itself succeeded."
+            echo "Files outside the generated set:"
             echo "$outside"
+            echo "To fix, review and commit the change on this branch yourself, either:"
+            echo "  - download the 'generated' artifact from this run and: git apply --index generated.patch"
+            echo "  - or install gh-aw $GH_AW_VERSION, run 'gh aw upgrade --skip-extension-upgrade && gh aw compile', and commit"
+            echo "The next run then finds nothing to change outside the generated set."
             exit 1
           fi
           git config user.name "github-actions[bot]"
